@@ -5,8 +5,16 @@
 
 # Trigger Push-Requests
 trigger:
-- main
-- feature/*
+  branches:
+    include:
+      - main
+      - feature/*
+  paths:
+    exclude:
+      - README.md
+      - azure-pipelines.yml
+      - docs/*
+
 
 # Trigger Pull-Requests
 pr:
