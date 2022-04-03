@@ -1,6 +1,8 @@
 # Terraform-oci-test pipeline
 # Yaml reference: https://aka.ms/yaml
 
+name: $(BuildDefinitionName)_$(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
+
 # Trigger Push-Requests
 trigger:
   batch: true
