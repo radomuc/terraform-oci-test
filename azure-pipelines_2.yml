@@ -8,7 +8,7 @@ variables:
   FSSRV_SSHFILE_PRIV: id_rsa.key
   FSSRV_SSHFILE_PUB: id_rsa.pub
   FSSRV_SSH_USER: radek
-  FSSRV_SERVERNAME: cloudservice@my-wan.de
+  FSSRV_SERVERNAME: cloudservice.my-wan.de
   FSSRV_SSH_PORT: 2222
 
 #resources:
