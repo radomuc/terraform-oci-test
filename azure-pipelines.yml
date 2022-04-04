@@ -1,21 +1,40 @@
 # Terraform-oci-test pipeline
 # Yaml reference: https://aka.ms/yaml
 
-name: $(BuildDefinitionName)_$(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
+# vim: expandtab shiftwidth=2 smartindent smarttab tabstop=2 softtabstop
+
+
+# Default: $(Date:yyyyMMdd).$(Rev:r)
+name: $(TeamProject)_$(BuildDefinitionName)_$(SourceBranchName)_$(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
+
+variables:
+  PIPELINE_WORKSPACE: $(Pipeline.Workspace)
+  SUB_SOURCEDIR: $(Build.SourcesDirectory)
+  SUB_ARTIFACTDIR: $(Build.ArtifactStagingDirectory)
+  SUB_BINDIR: $(Build.BinariesDirectory)
+  SUB_TESTDIR: $(Common.TestResultDirectory)
+  SUB_WORKDIR: $(System.DefaultWorkingDirectory)
+
+resources:
+  repositories:
+  - repository: myjavapipeline
+    type: github
+    endpoint: MyGithubServiceConnection
+    name: radomuc/pipelines-java
+    ref: master
 
 # Trigger Push-Requests
 trigger:
   batch: true
   branches:
     include:
-      - main
-      - feature/*
+    - main
+    - feature/*
   paths:
     exclude:
-      - README.md
-      - azure-pipelines.yml
-      - docs/*
-
+    - README.md
+    - azure-pipelines.yml
+    - docs/*
 
 # Trigger Pull-Requests
 pr:
@@ -36,6 +55,26 @@ pool:
   vmImage: $(vmImage)
 
 steps:
+- checkout: self
+  persistCredentials: true
+  clean: true
+- checkout: myjavapipeline
+  clean: true
+
+- script: |
+  echo "Workdirectory:"
+  ls -la
+  displayname: "Output workdirectory"
+
+- script: |
+  echo "VARIABLES:"
+  echo "System.DefaultWorkingDirectory: $(System.DefaultWorkingDirectory)"
+  echo "Pipeline.Workspace: $(Pipeline.Workspace)"
+  echo "Agent.OS: $(Agent.OS)"
+  echo "Build.BuildNumber: $(Build.BuildNumber)"
+  echo "Build.Reason: $(Build.Reason)"
+  displayname: current-variables
+
 - script: echo Hello, world!
   displayName: 'Run a one-line script'
 
@@ -44,3 +83,33 @@ steps:
     echo See https://aka.ms/yaml
   displayName: 'Run a multi-line script'
 
+## use cache for Docker-Images
+#- task: Cache@2
+#  displayName: Cache task
+#  inputs:
+#    key: 'docker | "$(Agent.OS)" | cache'
+#    path: $(Pipeline.Workspace)/docker
+#    cacheHitVar: CACHE_RESTORED
+#
+#- script: |
+#  docker load -i $(Pipeline.Workspace)/docker/cache.tar
+#  displayName: Docker restore
+#  condition: and(not(canceled()), eq(variables.CACHE_RESTORED, 'true'))
+#
+#- script: |
+#  mkdir -p $(Pipeline.Workspace)/docker
+#  docker save -o $(Pipeline.Workspace)/docker/cache.tar cache
+#  displayName: Docker save
+#  condition: and(not(canceled()), or(failed(), ne(variables.CACHE_RESTORED, 'true'))
+
+# access to OAuth-Token
+#steps:
+#- powershell: |
+#    $url = "$($env:SYSTEM_TEAMFOUNDATIONCOLLECTIONURI)$env:SYSTEM_TEAMPROJECTID/_apis/build/definitions/$($env:SYSTEM_DEFINITIONID)?api-version=4.1-preview"
+#    Write-Host "URL: $url"
+#    $pipeline = Invoke-RestMethod -Uri $url -Headers @{
+#      Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"
+#    }
+#    Write-Host "Pipeline = $($pipeline | ConvertTo-Json -Depth 100)"
+#  env:
+#    SYSTEM_ACCESSTOKEN: $(system.accesstoken)
