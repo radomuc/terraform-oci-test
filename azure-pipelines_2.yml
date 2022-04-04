@@ -54,6 +54,11 @@ stages:
   - job: initialize_vm
     displayName: 'Initialize VM'
     steps:
+    # Install sshfs
+    - script: |
+              apt update
+              apt install -y sshfs
+      displayName: 'Install sshfs'
     # Download secure-file
     - task: DownloadSecureFile@1
       name: sshKeyFilePriv
