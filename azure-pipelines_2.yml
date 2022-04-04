@@ -86,7 +86,7 @@ stages:
     - script: |
               mkdir $(Build.SourcesDirectory)/tf-cache
               sshfs $(FSSRV_SSH_USER)@$(FSSRV_SERVERNAME):/home/$(FSSRV_SSH_USER)/temp/tf-cache $(Build.SourcesDirectory)/tf-cache -o reconnect -o Port=$(FSSRV_SSH_PORT) -o ServerAliveInterval=15 -o IdentityFile="$HOME/.ssh/$(FSSRV_SSHFILE_PRIV)" -o StrictHostKeyChecking=accept-new
-              tree -au /home/vsts
+              tree -a /home/vsts/work
       displayName: 'Mount Shared-Directory'
     - script: |
               echo "Build docker-image"
