@@ -69,6 +69,8 @@ stages:
               sudo apt update
               sudo apt install -y sshfs tree make
       displayName: 'Install sshfs'
+    - script: sudo sed -ie 's/#user_allow_other/user_allow_other/' /etc/fuse.conf
+      displayName: 'Setup fuse'
     # Download secure-file
     - task: DownloadSecureFile@1
       name: sshKeyFilePriv
@@ -86,7 +88,7 @@ stages:
     # workdir: /home/vsts/work/1/s
     - script: |
               mkdir $(Pipeline.Workspace)/tf-cache
-              sshfs $(FSSRV_SSH_USER)@$(FSSRV_SERVERNAME):/home/$(FSSRV_SSH_USER)/temp/tf-cache $(Pipeline.Workspace)/tf-cache -o reconnect -o Port=$(FSSRV_SSH_PORT) -o ServerAliveInterval=15 -o IdentityFile="$HOME/.ssh/$(FSSRV_SSHFILE_PRIV)" -o StrictHostKeyChecking=accept-new
+              sshfs $(FSSRV_SSH_USER)@$(FSSRV_SERVERNAME):/home/$(FSSRV_SSH_USER)/temp/tf-cache $(Pipeline.Workspace)/tf-cache -o reconnect -o Port=$(FSSRV_SSH_PORT) -o ServerAliveInterval=15 -o IdentityFile="$HOME/.ssh/$(FSSRV_SSHFILE_PRIV)" -o StrictHostKeyChecking=accept-new -o allow_other
               ls -la /home/vsts/work/1/tf-cache
               tree /home/vsts/work
       displayName: 'Mount Shared-Directory'
@@ -99,7 +101,7 @@ stages:
       displayName: "Build docker-image"
     - script: |
               echo "Start docker-terraform"
-              sudo docker run --rm -v $(Pipeline.Workspace)/tf-repo:/root/workspace --mount type=bind,source=$(Pipeline.Workspace)/tf-cache,target=/root/workspace/tf-cache,bind-propagation=shared -w /root/workspace --name terraform-oci --entrypoint /bin/bash lurseag/auto-terraform:v0.1 -c "cd /root/workspace; ls -la; cd tf-cache; ls -la; /usr/bin/terraform -help"
+              docker run --rm -v $(Pipeline.Workspace)/tf-repo:/root/workspace --mount type=bind,source=$(Pipeline.Workspace)/tf-cache,target=/root/workspace/tf-cache,bind-propagation=shared -w /root/workspace --name terraform-oci --entrypoint /bin/bash lurseag/auto-terraform:v0.1 -c "cd /root/workspace; ls -la; cd tf-cache; ls -la; /usr/bin/terraform -help"
       displayName: "Run docker-terraform"
   - job: 'prepare_environment'
     displayName: "Prepare environment"
