@@ -63,6 +63,7 @@ stages:
     - checkout: self
       path: tf-repo
     - checkout: repo_radomuc
+      path: docker-terraform-build
     # Install sshfs
     - script: |
               sudo apt update
@@ -84,14 +85,17 @@ stages:
       displayName: "Install ssh-key"
     # workdir: /home/vsts/work/1/s
     - script: |
-              mkdir $(Build.SourcesDirectory)/tf-cache
-              sshfs $(FSSRV_SSH_USER)@$(FSSRV_SERVERNAME):/home/$(FSSRV_SSH_USER)/temp/tf-cache $(Build.SourcesDirectory)/tf-cache -o reconnect -o Port=$(FSSRV_SSH_PORT) -o ServerAliveInterval=15 -o IdentityFile="$HOME/.ssh/$(FSSRV_SSHFILE_PRIV)" -o StrictHostKeyChecking=accept-new
+              mkdir $(Pipeline.Workspace)/tf-cache
+              sshfs $(FSSRV_SSH_USER)@$(FSSRV_SERVERNAME):/home/$(FSSRV_SSH_USER)/temp/tf-cache $(Pipeline.Workspace)/tf-cache -o reconnect -o Port=$(FSSRV_SSH_PORT) -o ServerAliveInterval=15 -o IdentityFile="$HOME/.ssh/$(FSSRV_SSHFILE_PRIV)" -o StrictHostKeyChecking=accept-new
               tree /home/vsts/work
       displayName: 'Mount Shared-Directory'
     - script: |
               echo "Build docker-image"
+              pushd $(Pipeline.Workspace)/docker-terraform-build/build-src/
+              make
+              popd
               docker images
-      displayName: "Install prog ..."
+      displayName: "Build docker-image"
     - script: echo "create or download docker-image"
 
   - job: 'prepare_environment'
