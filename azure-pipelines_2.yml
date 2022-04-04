@@ -16,13 +16,13 @@ variables:
   SUB_TESTDIR: $(Common.TestResultDirectory)
   SUB_WORKDIR: $(System.DefaultWorkingDirectory)
 
-#resources:
-#  repositories:
-#  - repository: myjavapipeline
-#    type: github
-#    endpoint: MyGithubServiceConnection
-#    name: radomuc/pipelines-java
-#    ref: master
+resources:
+  repositories:
+  - repository: repo_radomuc
+    type: github
+    endpoint: radomuc
+    name: radomuc/docker-terraform-build
+    ref: master
 
 # Trigger Push-Requests
 trigger:
@@ -59,10 +59,14 @@ stages:
   - job: initialize_vm
     displayName: 'Initialize VM'
     steps:
+    # checkout repos
+    - checkout: self
+      path: tf-repo
+    - checkout: repo_radomuc
     # Install sshfs
     - script: |
               sudo apt update
-              sudo apt install -y sshfs
+              sudo apt install -y sshfs tree make
       displayName: 'Install sshfs'
     # Download secure-file
     - task: DownloadSecureFile@1
@@ -82,9 +86,10 @@ stages:
     - script: |
               mkdir $(Build.SourcesDirectory)/tf-cache
               sshfs $(FSSRV_SSH_USER)@$(FSSRV_SERVERNAME):/home/$(FSSRV_SSH_USER)/temp/tf-cache $(Build.SourcesDirectory)/tf-cache -o reconnect -o Port=$(FSSRV_SSH_PORT) -o ServerAliveInterval=15 -o IdentityFile="$HOME/.ssh/$(FSSRV_SSHFILE_PRIV)" -o StrictHostKeyChecking=accept-new
+              tree -au /home/vsts
       displayName: 'Mount Shared-Directory'
     - script: |
-              echo "install programs ..."
+              echo "Build docker-image"
               docker images
       displayName: "Install prog ..."
     - script: echo "create or download docker-image"
