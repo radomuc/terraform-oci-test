@@ -99,8 +99,8 @@ stages:
       displayName: "Build docker-image"
     - script: |
               echo "Start docker-terraform"
-              docker run --rm -v $(Pipeline.Workspace)/tf-repo:/root/workspace --mount type=bind,source=$(Pipeline.Workspace)/tf-cache,target=/root/workspace/tf-cache,bind-propagation=shared -w /root/workspace --name terraform-oci --entrypoint /bin/bash lurseag/auto-terraform:v0.1 -c "cd /root/workspace; ls -la; cd tf-cache; ls -la; /usr/bin/terraform -help"
-      displayName: "run docker-terraform"
+              sudo docker run --rm -v $(Pipeline.Workspace)/tf-repo:/root/workspace --mount type=bind,source=$(Pipeline.Workspace)/tf-cache,target=/root/workspace/tf-cache,bind-propagation=shared -w /root/workspace --name terraform-oci --entrypoint /bin/bash lurseag/auto-terraform:v0.1 -c "cd /root/workspace; ls -la; cd tf-cache; ls -la; /usr/bin/terraform -help"
+      displayName: "Run docker-terraform"
   - job: 'prepare_environment'
     displayName: "Prepare environment"
     dependsOn: initialize_vm
