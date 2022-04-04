@@ -11,13 +11,13 @@ variables:
   FSSRV_SERVERNAME: cloudservice@my-wan.de
   FSSRV_SSH_PORT: 2222
 
-resources:
-  repositories:
-  - repository: myjavapipeline
-    type: github
-    endpoint: MyGithubServiceConnection
-    name: radomuc/pipelines-java
-    ref: master
+#resources:
+#  repositories:
+#  - repository: myjavapipeline
+#    type: github
+#    endpoint: MyGithubServiceConnection
+#    name: radomuc/pipelines-java
+#    ref: master
 
 # Trigger Push-Requests
 trigger:
