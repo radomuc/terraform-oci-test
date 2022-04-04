@@ -79,10 +79,12 @@ stages:
               mkdir "$HOME/.ssh"
               ln -s $(sshKeyFilePriv.secureFilePath) "$HOME/.ssh/$(FSSRV_SSHFILE_PRIV)"
       displayName: "Install ssh-key"
+    # workdir: /home/vsts/work/1/s
     - script: |
-              ssh -i $HOME/.ssh/$(FSSRV_SSHFILE_PRIV) -p $(FSSRV_SSH_PORT) -o StrictHostKeyChecking=accept-new $(FSSRV_SSH_USER)@$(FSSRV_SERVERNAME) ls -l
-              sshfs --version
-              pwd
+              echo "Disabled: ssh -i $HOME/.ssh/$(FSSRV_SSHFILE_PRIV) -p $(FSSRV_SSH_PORT) -o StrictHostKeyChecking=accept-new $(FSSRV_SSH_USER)@$(FSSRV_SERVERNAME) ls -l"
+              mkdir $(Build.SourcesDirectory)/tf-cache
+              sshfs $(FSSRV_SSH_USER)@$(FSSRV_SERVERNAME):/home/$(FSSRV_SSH_USER)/temp/tf-cache $(Build.SourcesDirectory)/tf-cache -o reconnect -o directport=$(FSSRV_SSH_PORT) -o ServerAliveInterval=15 -o IdentityFile="$HOME/.ssh/$(FSSRV_SSHFILE_PRIV)" -o StrictHostKeyChecking=accept-new
+              echo "Current Directory: $(pwd)"
               echo "Pipeline.Workspace: $(PIPELINE_WORKSPACE)"
               echo "Build.SourcesDirectory: $(SUB_SOURCEDIR)"
               echo "Build.ArtifactStagingDirectory: $(SUB_ARTIFACTDIR)"
