@@ -10,6 +10,12 @@ variables:
   FSSRV_SSH_USER: radek
   FSSRV_SERVERNAME: cloudservice.my-wan.de
   FSSRV_SSH_PORT: 2222
+  PIPELINE_WORKSPACE: $(Pipeline.Workspace)
+  SUB_SOURCEDIR: $(Build.SourcesDirectory)
+  SUB_ARTIFACTDIR: $(Build.ArtifactStagingDirectory)
+  SUB_BINDIR: $(Build.BinariesDirectory)
+  SUB_TESTDIR: $(Common.TestResultDirectory)
+  SUB_WORKDIR: $(System.DefaultWorkingDirectory)
 
 #resources:
 #  repositories:
@@ -57,7 +63,7 @@ stages:
     # Install sshfs
     - script: |
               sudo apt update
-              sudo apt install -y sshfs
+              sudo apt install -y sshfs tree
       displayName: 'Install sshfs'
     # Download secure-file
     - task: DownloadSecureFile@1
@@ -75,7 +81,15 @@ stages:
       displayName: "Install ssh-key"
     - script: |
               ssh -i $HOME/.ssh/$(FSSRV_SSHFILE_PRIV) -p $(FSSRV_SSH_PORT) -o StrictHostKeyChecking=accept-new $(FSSRV_SSH_USER)@$(FSSRV_SERVERNAME) ls -l
-              sshfs --version              
+              sshfs --version
+              pwd
+              echo "Pipeline.Workspace: $(PIPELINE_WORKSPACE)"
+              echo "Build.SourcesDirectory: $(SUB_SOURCEDIR)"
+              echo "Build.ArtifactStagingDirectory: $(SUB_ARTIFACTDIR)"
+              echo "Build.BinariesDirectory: $(Build.BinariesDirectory)"
+              echo "Common.TestResultDirectory: $(Common.TestResultDirectory)"
+              echo "System.DefaultWorkingDirectory: $(System.DefaultWorkingDirectory)"
+              tree .
       displayName: 'Check ssh connection'
     - script: |
               echo "install programs ..."
