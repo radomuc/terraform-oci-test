@@ -1,5 +1,7 @@
 # vim: expandtab shiftwidth=2 smartindent smarttab tabstop=2 softtabstop
 
+# ref (container): https://docs.microsoft.com/de-de/azure/devops/pipelines/process/container-phases?view=azure-devops
+
 variables:
   FSSRV_SSH_PORT: 2222
   SSHFILE_PRIV: id_rsa.key
@@ -39,7 +41,6 @@ pool:
   vmImage: ubuntu-latest
 
 container:
-	# ref: https://docs.microsoft.com/de-de/azure/devops/pipelines/process/container-phases?view=azure-devops
 	image: registry:myterraformimage
 	endpoint: private_dockerhub_connection
 	options: --hostname container-test --ip 192.168.0.1
