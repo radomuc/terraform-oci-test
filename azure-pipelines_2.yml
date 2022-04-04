@@ -70,6 +70,7 @@ stages:
       displayName: "Install ssh-key"
     - script: |
               ssh -i $HOME/.ssh/$(FSSRV_SSHFILE_PRIV) -p $(FSSRV_SSH_PORT) -o StrictHostKeyChecking=accept-new $(FSSRV_SSH_USER)@$(FSSRV_SERVERNAME) ls -l
+              sshfs --version              
       displayName: 'Check ssh connection'
     - script: |
               echo "install programs ..."
