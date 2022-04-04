@@ -20,7 +20,7 @@ resources:
   repositories:
   - repository: repo_radomuc
     type: github
-    endpoint: radomuc
+    endpoint: github.com_radomuc
     name: radomuc/docker-terraform-build
     ref: master
 
