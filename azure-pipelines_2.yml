@@ -41,70 +41,99 @@ pool:
   vmImage: ubuntu-latest
 
 container:
-	image: registry:myterraformimage
-	endpoint: private_dockerhub_connection
-	options: --hostname container-test --ip 192.168.0.1
+  image: registry:myterraformimage
+  endpoint: private_dockerhub_connection
+  options: --hostname container-test --ip 192.168.0.1
 
 stages:
-	# test-environment
+# test-environment
 - stage: "run_terraform_testenv"
-	displayName: "Run terraform for test-environment"
+    displayName: "Run terraform for test-environment"
 	# @TODO: jobs müssgen ggf. zusammengeführt werden, da nicht garnatiert werden kann, das diese jobs auf dem gleichen Agenten ausgeführt werden
 	jobs:
-		- job: initialize_vm
-			displayName: "Initialize VM"
-			steps:
-      # Download secure-file
-			- task: DownloadSecureFile@1
-				name: sshKeyFilePriv
-        displayName: 'Download ssh-key-private'
-        inputs:
-          secureFile: 'fssrv-sshfs-id_rsa.key'
-      # install ssh-key
-      - script: |
-                echo "Installing $(sshKeyFilePriv.secureFilePath) to the .ssh"
-                sudo chown root:root $(sshKeyFilePriv.secureFilePath)
-                sudo chmod a+r $(sshKeyFilePriv.secureFilePath)
-                mkdir "$HOME/.ssh"
-                ln -s $(sshKeyFilePriv.secureFilePath) "$HOME/.ssh/$(SSHFILE_PRIV)"
-        displayName: "Install ssh-key"
-      - script: ssh -i $HOME/.ssh/$(SSHFILE_PRIV) -p $(FSSRV_SSH_PORT) $(FSSRV_SSH_USER)@$(FSSRV_SERVERNAME) ls -l
-        displayName: "Check ssh connection"
-			- script: |
-								echo "install programs ..."
-				displayName: "Install prog ..."
-			- script: echo "create or download docker-image"
+    - job: initialize_vm
+        displayName: "Initialize VM"
+        steps:
+        # Download secure-file
+        - task: DownloadSecureFile@1
+            name: sshKeyFilePriv
+            displayName: 'Download ssh-key-private'
+            inputs:
+            secureFile: 'fssrv-sshfs-id_rsa.key'
+        # install ssh-key
+        - script: |
+                  echo "Installing $(sshKeyFilePriv.secureFilePath) to the .ssh"
+                  sudo chown root:root $(sshKeyFilePriv.secureFilePath)
+                  sudo chmod a+r $(sshKeyFilePriv.secureFilePath)
+                  mkdir "$HOME/.ssh"
+                  ln -s $(sshKeyFilePriv.secureFilePath) "$HOME/.ssh/$(SSHFILE_PRIV)"
+          displayName: "Install ssh-key"
+        - script: ssh -i $HOME/.ssh/$(SSHFILE_PRIV) -p $(FSSRV_SSH_PORT) $(FSSRV_SSH_USER)@$(FSSRV_SERVERNAME) ls -l
+          displayName: "Check ssh connection"
+		- script: |
+                  echo "install programs ..."
+          displayName: "Install prog ..."
+        - script: echo "create or download docker-image"
 
-		- job: 'prepare_environment'
-			displayName: "Prepare environment"
-			dependsOn: initialize_vm
-			steps:
-		- job: 'start_container'
-			displayName: "Start container"
-			timeoutInMinutes: 120
-			cancelTimeoutInMinutes: 5
-			depndsOn: prepare_environment
-			steps:
-			- script: echo "start container"
+    - job: 'prepare_environment'
+	    displayName: "Prepare environment"
+        dependsOn: initialize_vm
+        steps:
 
-		- job: 'cleanup'
-			displayName: "Cleanup"
-			dependsOn:
-			- prepare_environment
-			- start_container
-			condition: succeeded('prepare_environment')
-			workspace:
-				clean: outputs | resources
-			steps:
-			- script: |
-								echo "unbind shared-directory"
-								echo "destroy container"
+    - job: 'start_container'
+	    displayName: "Start container"
+        timeoutInMinutes: 120
+        cancelTimeoutInMinutes: 5
+        depndsOn: prepare_environment
+        steps:
+		- script: echo "start container"
+
+    - job: 'cleanup'
+        displayName: "Cleanup"
+        dependsOn:
+        - prepare_environment
+        - start_container
+        condition: succeeded('prepare_environment')
+        workspace:
+        clean: outputs | resources
+        steps:
+        - script: |
+                  echo "unbind shared-directory"
+                  echo "destroy container"
+
+#   - job: 'prepare_environment'
+#       displayName: "Prepare environment"
+#       dependsOn: initialize_vm
+#       steps:
+#        - checkout: self
+#            path: tf-repo
+#
+#   - job: 'start_container'
+#       displayName: "Start container"
+#       timeoutInMinutes: 120
+#       cancelTimeoutInMinutes: 5
+#       depndsOn: prepare_environment
+#       steps:
+#       - script: echo "start container"
+#
+#   - job: 'cleanup'
+#       displayName: "Cleanup"
+#       dependsOn:
+#       - prepare_environment
+#       - start_container
+#       condition: succeeded('prepare_environment')
+#       workspace:
+#         clean: outputs | resources
+#       steps:
+#       - script: |
+#                 echo "unbind shared-directory"
+#                 echo "destroy container"
 
 # prod-environment
-- stage: "run_terraform_prodenv"
-	displayName: "Run terraform for prod-environment"
-	dependsOn: run_terraform_testenv
-	condition: succeeded()
-
-	jobs:
-
+# stage: "run_terraform_prodenv"
+# displayName: "Run terraform for prod-environment"
+# dependsOn: run_terraform_testenv
+# condition: succeeded()
+#
+# jobs:
+#
