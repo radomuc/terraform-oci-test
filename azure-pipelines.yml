@@ -1,13 +1,14 @@
-# Terraform-oci-test pipeline
-# Yaml reference: https://aka.ms/yaml
-
 # vim: expandtab shiftwidth=2 smartindent smarttab tabstop=2 softtabstop
 
-
-# Default: $(Date:yyyyMMdd).$(Rev:r)
-name: $(TeamProject)_$(BuildDefinitionName)_$(SourceBranchName)_$(Year:yyyy).$(Month).$(DayOfMonth)$(Rev:.r)
+# @TODO: use a ssh-certificate
+# @TODO: jobs müssgen ggf. zusammengeführt werden, da nicht garnatiert werden kann, das diese jobs auf dem gleichen Agenten ausgeführt werden
 
 variables:
+  FSSRV_SSHFILE_PRIV: id_rsa.key
+  FSSRV_SSHFILE_PUB: id_rsa.pub
+  FSSRV_SSH_USER: radek
+  FSSRV_SERVERNAME: cloudservice.my-wan.de
+  FSSRV_SSH_PORT: 2222
   PIPELINE_WORKSPACE: $(Pipeline.Workspace)
   SUB_SOURCEDIR: $(Build.SourcesDirectory)
   SUB_ARTIFACTDIR: $(Build.ArtifactStagingDirectory)
@@ -17,10 +18,10 @@ variables:
 
 resources:
   repositories:
-  - repository: myjavapipeline
+  - repository: repo_radomuc
     type: github
-    endpoint: MyGithubServiceConnection
-    name: radomuc/pipelines-java
+    endpoint: github.com_radomuc
+    name: radomuc/docker-terraform-build
     ref: master
 
 # Trigger Push-Requests
@@ -41,75 +42,130 @@ pr:
 - main
 - feature/*
 
-strategy:
-  matrix:
-    mshosted:
-      poolName: Azure Pipelines
-      vmImage: ubuntu-latest
-    selfhosted:
-      poolname: Lurse Agents
-      vmImage:
-
 pool:
-  name: $(poolName)
-  vmImage: $(vmImage)
+  vmImage: ubuntu-latest
 
-steps:
-- checkout: self
-  persistCredentials: true
-  clean: true
-- checkout: myjavapipeline
-  clean: true
+#container:
+#  # @Ref: https://docs.microsoft.com/de-de/azure/devops/pipelines/process/container-phases?view=azure-devops
+#  image: registry:myterraformimage
+#  endpoint: private_dockerhub_connection
+#  options: --hostname container-test --ip 192.168.0.1
 
-- script: |
-  echo "Workdirectory:"
-  ls -la
-  displayname: "Output workdirectory"
+stages:
+# test-environment
+- stage: run_terraform_testenv
+  displayName: "Run terraform for test-environment"
+  jobs:
+  - job: initialize_vm
+    displayName: 'Initialize VM'
+    steps:
+    # checkout repos
+    - checkout: self
+      path: tf-repo
+    - checkout: repo_radomuc
+      path: docker-terraform-build
+    # Install sshfs
+    - script: |
+              sudo apt update
+              sudo apt install -y sshfs tree make
+      displayName: 'Install sshfs'
+    - script: sudo sed -ie 's/#user_allow_other/user_allow_other/' /etc/fuse.conf
+      displayName: 'Setup fuse'
+    # Download secure-file
+    - task: DownloadSecureFile@1
+      name: sshKeyFilePriv
+      displayName: 'Download ssh-key-private'
+      inputs:
+        secureFile: 'fssrv-sshfs-id_rsa.key'
+    # install ssh-key
+    - script: |
+              echo "Installing $(sshKeyFilePriv.secureFilePath) to the .ssh"
+              sudo chown root:root $(sshKeyFilePriv.secureFilePath)
+              sudo chmod a+r $(sshKeyFilePriv.secureFilePath)
+              mkdir "$HOME/.ssh"
+              ln -s $(sshKeyFilePriv.secureFilePath) "$HOME/.ssh/$(FSSRV_SSHFILE_PRIV)"
+      displayName: "Install ssh-key"
+    # workdir: /home/vsts/work/1/s
+    - script: |
+              mkdir $(Pipeline.Workspace)/tf-cache
+              sshfs $(FSSRV_SSH_USER)@$(FSSRV_SERVERNAME):/home/$(FSSRV_SSH_USER)/temp/tf-cache $(Pipeline.Workspace)/tf-cache -o reconnect -o Port=$(FSSRV_SSH_PORT) -o ServerAliveInterval=15 -o IdentityFile="$HOME/.ssh/$(FSSRV_SSHFILE_PRIV)" -o StrictHostKeyChecking=accept-new -o allow_other
+              ls -la /home/vsts/work/1/tf-cache
+              tree /home/vsts/work
+      displayName: 'Mount Shared-Directory'
+    - script: |
+              echo "Build docker-image"
+              pushd $(Pipeline.Workspace)/docker-terraform-build/build-src/
+              make
+              popd
+              docker images
+      displayName: "Build docker-image"
+    - script: |
+              echo "Start docker-terraform"
+              docker run --rm -v $(Pipeline.Workspace)/tf-repo:/root/workspace --mount type=bind,source=$(Pipeline.Workspace)/tf-cache,target=/root/workspace/tf-cache,bind-propagation=shared -w /root/workspace --name terraform-oci --entrypoint /bin/bash lurseag/auto-terraform:v0.1 -c "cd /root/workspace; ls -la; cd tf-cache; ls -la; /usr/bin/terraform -help"
+      displayName: "Run docker-terraform"
+  - job: 'prepare_environment'
+    displayName: "Prepare environment"
+    dependsOn: initialize_vm
+    steps:
+    - script: echo "nothing"
 
-- script: |
-  echo "VARIABLES:"
-  echo "System.DefaultWorkingDirectory: $(System.DefaultWorkingDirectory)"
-  echo "Pipeline.Workspace: $(Pipeline.Workspace)"
-  echo "Agent.OS: $(Agent.OS)"
-  echo "Build.BuildNumber: $(Build.BuildNumber)"
-  echo "Build.Reason: $(Build.Reason)"
-  displayname: current-variables
+  - job: 'start_container'
+    displayName: 'Start container'
+    timeoutInMinutes: 120
+    cancelTimeoutInMinutes: 5
+    dependsOn: prepare_environment
+    steps:
+    - script: |
+              echo "start container"
 
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+  - job: 'cleanup'
+    displayName: "Cleanup"
+    dependsOn:
+    - prepare_environment
+    - start_container
+    condition: succeeded('prepare_environment')
+    workspace:
+      clean: all
+    steps:
+    - script: |
+              echo "unbind shared-directory"
+              sync
+              umount $(Build.SourcesDirectory)/tf-cache
+              echo "destroy container"
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
-
-## use cache for Docker-Images
-#- task: Cache@2
-#  displayName: Cache task
-#  inputs:
-#    key: 'docker | "$(Agent.OS)" | cache'
-#    path: $(Pipeline.Workspace)/docker
-#    cacheHitVar: CACHE_RESTORED
+#   - job: 'prepare_environment'
+#       displayName: "Prepare environment"
+#       dependsOn: initialize_vm
+#       steps:
+#        - checkout: self
+#            path: tf-repo
 #
-#- script: |
-#  docker load -i $(Pipeline.Workspace)/docker/cache.tar
-#  displayName: Docker restore
-#  condition: and(not(canceled()), eq(variables.CACHE_RESTORED, 'true'))
+#   - job: 'start_container'
+#       displayName: "Start container"
+#       timeoutInMinutes: 120
+#       cancelTimeoutInMinutes: 5
+#       depndsOn: prepare_environment
+#       steps:
+#       - script: echo "start container"
 #
-#- script: |
-#  mkdir -p $(Pipeline.Workspace)/docker
-#  docker save -o $(Pipeline.Workspace)/docker/cache.tar cache
-#  displayName: Docker save
-#  condition: and(not(canceled()), or(failed(), ne(variables.CACHE_RESTORED, 'true'))
+#   - job: 'cleanup'
+#       displayName: "Cleanup"
+#       dependsOn:
+#       - prepare_environment
+#       - start_container
+#       condition: succeeded('prepare_environment')
+#       workspace:
+#         clean: outputs | resources
+#       steps:
+#       - script: |
+#                 echo "unbind shared-directory"
+#                 echo "destroy container"
 
-# access to OAuth-Token
-#steps:
-#- powershell: |
-#    $url = "$($env:SYSTEM_TEAMFOUNDATIONCOLLECTIONURI)$env:SYSTEM_TEAMPROJECTID/_apis/build/definitions/$($env:SYSTEM_DEFINITIONID)?api-version=4.1-preview"
-#    Write-Host "URL: $url"
-#    $pipeline = Invoke-RestMethod -Uri $url -Headers @{
-#      Authorization = "Bearer $env:SYSTEM_ACCESSTOKEN"
-#    }
-#    Write-Host "Pipeline = $($pipeline | ConvertTo-Json -Depth 100)"
-#  env:
-#    SYSTEM_ACCESSTOKEN: $(system.accesstoken)
+# prod-environment
+# stage: "run_terraform_prodenv"
+# displayName: "Run terraform for prod-environment"
+# dependsOn: run_terraform_testenv
+# condition: succeeded()
+#
+# jobs:
+#
